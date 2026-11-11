@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>薬剤半減期指数関数的減衰シミュレーション</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-1">薬剤半減期指数関数的減衰シミュレーション</h1>
+    <p class="text-gray-500 text-sm mb-1">薬剤の血中濃度の時間変化と定常状態をシミュレーション。</p>
+    <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 text-xs rounded-lg px-3 py-2 mb-6">
+      ⚠️ このシミュレーションは教育目的のみです。医療判断・自己投薬には絶対に使用しないでください。
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-6 mb-6">
+      <h2 class="text-base font-semibold text-gray-700 mb-4">薬剤・投与設定</h2>
+
+      <!-- プリセット -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-600 mb-1">薬剤プリセット</label>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="presets"></div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="drugName">薬剤名</label>
+          <input id="drugName" type="text" value="カフェイン" aria-label="薬剤名"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="halfLife">半減期（時間）</label>
+          <input id="halfLife" type="number" min="0.1" max="200" step="0.1" value="5" aria-label="半減期（時間）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="dose">1回投与量（mg）</label>
+          <input id="dose" type="number" min="1" max="10000" value="200" aria-label="1回投与量（mg）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="interval">投与間隔（時間）</label>
+          <input id="interval" type="number" min="1" max="72" step="0.5" value="6" aria-label="投与間隔（時間）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="doses">投与回数</label>
+          <input id="doses" type="number" min="1" max="20" value="6" aria-label="投与回数"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="mecVal">有効濃度下限 MEC（mg）</label>
+          <input id="mecVal" type="number" min="0" max="10000" value="40" aria-label="有効濃度下限 MEC（mg）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="mtcVal">毒性濃度下限 MTC（mg）</label>
+          <input id="mtcVal" type="number" min="0" max="50000" value="600" aria-label="毒性濃度下限 MTC（mg）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+      </div>
+
+      <button id="simBtn" aria-label="シミュレーション実行"
+        class="mt-5 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-2 rounded-lg transition">
+        シミュレーション実行
+      </button>
+    </div>
+
+    <!-- 結果 -->
+    <div id="resultArea" class="hidden">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-xl p-4 text-center">
+          <div class="text-xs text-gray-500 mb-1">定常状態ピーク濃度</div>
+          <div id="ssPeak" class="text-xl font-bold text-blue-700">-</div>
+          <div class="text-xs text-gray-400">mg</div>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 text-center">
+          <div class="text-xs text-gray-500 mb-1">定常状態トラフ濃度</div>
+          <div id="ssTrough" class="text-xl font-bold text-green-700">-</div>
+          <div class="text-xs text-gray-400">mg</div>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-4 text-center">
+          <div class="text-xs text-gray-500 mb-1">定常状態到達時間（目安）</div>
+          <div id="ssTime" class="text-xl font-bold text-purple-700">-</div>
+          <div class="text-xs text-gray-400">時間</div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4 mb-6">
+        <h2 class="text-base font-semibold text-gray-700 mb-3">血中濃度 vs 時間グラフ</h2>
+        <div class="flex gap-4 text-xs text-gray-500 mb-2 flex-wrap">
+          <span class="flex items-center gap-1"><span class="inline-block w-6 h-0.5 bg-blue-500"></span>血中濃度</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-6 h-0.5 bg-green-500" style="border-top:2px dashed #22c55e"></span>MEC（有効濃度下限）</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-6 h-0.5 bg-red-500" style="border-top:2px dashed #ef4444"></span>MTC（毒性濃度下限）</span>
+        </div>
+        <div class="overflow-x-auto">
+          <svg id="chart" viewBox="0 0 700 300" class="w-full" aria-label="血中濃度グラフ" role="img"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+    const PRESETS = [
+      { name: 'アスピリン', halfLife: 0.4, dose: 500, interval: 8 },
+      { name: 'カフェイン', halfLife: 5, dose: 200, interval: 6 },
+      { name: 'アルコール', halfLife: 1.5, dose: 20, interval: 2 },
+      { name: 'パラセタモール', halfLife: 2, dose: 500, interval: 6 },
+      { name: 'アモキシシリン', halfLife: 1.3, dose: 500, interval: 8 },
+      { name: 'ジアゼパム', halfLife: 40, dose: 5, interval: 12 },
+      { name: 'メトフォルミン', halfLife: 6, dose: 500, interval: 12 },
+      { name: 'アトルバスタチン', halfLife: 14, dose: 20, interval: 24 },
+    ];
+
+    function buildPresets() {
+      const container = document.getElementById('presets');
+      container.innerHTML = PRESETS.map(p =>
+        `<button class="preset-btn text-xs border border-gray-200 rounded-lg px-2 py-1.5 hover:bg-blue-50 hover:border-blue-300 transition text-left"
+          aria-label="${escHtml(p.name)}を選択"
+          data-name="${escHtml(p.name)}" data-hl="${p.halfLife}" data-dose="${p.dose}" data-interval="${p.interval}">
+          ${escHtml(p.name)}<br><span class="text-gray-400">半減期 ${p.halfLife}h</span>
+        </button>`
+      ).join('');
+      container.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('drugName').value = btn.dataset.name;
+          document.getElementById('halfLife').value = btn.dataset.hl;
+          document.getElementById('dose').value = btn.dataset.dose;
+          document.getElementById('interval').value = btn.dataset.interval;
+        });
+      });
+    }
+
+    function simulate() {
+      const halfLife = parseFloat(document.getElementById('halfLife').value) || 1;
+      const dose = parseFloat(document.getElementById('dose').value) || 100;
+      const interval = parseFloat(document.getElementById('interval').value) || 6;
+      const doses = parseInt(document.getElementById('doses').value) || 4;
+      const mec = parseFloat(document.getElementById('mecVal').value) || 0;
+      const mtc = parseFloat(document.getElementById('mtcVal').value) || 999999;
+
+      const k = Math.log(2) / halfLife;
+      const totalTime = interval * doses + halfLife * 5;
+      const dt = Math.min(0.05, halfLife / 50);
+      const steps = Math.ceil(totalTime / dt);
+
+      const times = [], concs = [];
+      let conc = 0;
+      let nextDose = 0;
+      let doseCount = 0;
+      for (let i = 0; i <= steps; i++) {
+        const t = i * dt;
+        if (doseCount < doses && Math.abs(t - nextDose) < dt / 2) {
+          conc += dose;
+          doseCount++;
+          nextDose += interval;
+        }
+        times.push(t);
+        concs.push(conc);
+        conc = conc * Math.exp(-k * dt);
+      }
+
+      // 定常状態
+      const r = Math.exp(-k * interval);
+      const ssPeak = dose / (1 - r);
+      const ssTrough = ssPeak * r;
+      const ssReachTime = halfLife * 5;
+
+      document.getElementById('ssPeak').textContent = ssPeak.toFixed(1);
+      document.getElementById('ssTrough').textContent = ssTrough.toFixed(1);
+      document.getElementById('ssTime').textContent = ssReachTime.toFixed(1);
+
+      drawChart(times, concs, mec, mtc);
+      document.getElementById('resultArea').classList.remove('hidden');
+    }
+
+    function drawChart(times, concs, mec, mtc) {
+      const svg = document.getElementById('chart');
+      const W = 700, H = 300;
+      const PAD = { top: 20, right: 20, bottom: 36, left: 70 };
+      const cW = W - PAD.left - PAD.right;
+      const cH = H - PAD.top - PAD.bottom;
+
+      const maxX = times[times.length - 1];
+      const maxY = Math.max(...concs, mtc * 1.1);
+      const sx = x => PAD.left + (x / maxX) * cW;
+      const sy = y => PAD.top + cH * (1 - y / maxY);
+
+      let html = '';
+      // グリッド
+      for (let i = 0; i <= 4; i++) {
+        const y = PAD.top + (cH / 4) * i;
+        const val = maxY * (1 - i / 4);
+        html += `<line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" stroke="#e5e7eb" stroke-width="1"/>`;
+        html += `<text x="${PAD.left - 5}" y="${y + 4}" text-anchor="end" font-size="10" fill="#9ca3af">${val.toFixed(0)}</text>`;
+      }
+      // X軸
+      for (let i = 0; i <= 5; i++) {
+        const t = maxX * i / 5;
+        html += `<text x="${sx(t)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#9ca3af">${t.toFixed(0)}h</text>`;
+      }
+      // 治療域帯
+      if (mec < mtc && mtc < maxY * 1.5) {
+        const y1 = sy(mtc), y2 = sy(mec);
+        html += `<rect x="${PAD.left}" y="${y1}" width="${cW}" height="${y2 - y1}" fill="#dcfce7" opacity="0.4"/>`;
+      }
+      // MEC/MTC線
+      if (mec > 0 && mec <= maxY) {
+        html += `<line x1="${PAD.left}" y1="${sy(mec)}" x2="${W-PAD.right}" y2="${sy(mec)}" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="6,3"/>`;
+        html += `<text x="${W-PAD.right+2}" y="${sy(mec)+4}" font-size="9" fill="#22c55e">MEC</text>`;
+      }
+      if (mtc > 0 && mtc <= maxY) {
+        html += `<line x1="${PAD.left}" y1="${sy(mtc)}" x2="${W-PAD.right}" y2="${sy(mtc)}" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="6,3"/>`;
+        html += `<text x="${W-PAD.right+2}" y="${sy(mtc)+4}" font-size="9" fill="#ef4444">MTC</text>`;
+      }
+      // 濃度曲線 (間引き)
+      const step = Math.max(1, Math.floor(times.length / 1000));
+      let path = '';
+      for (let i = 0; i < times.length; i += step) {
+        const cmd = i === 0 ? 'M' : 'L';
+        path += `${cmd} ${sx(times[i])} ${sy(concs[i])} `;
+      }
+      html += `<path d="${path}" fill="none" stroke="#3b82f6" stroke-width="2"/>`;
+
+      svg.innerHTML = html;
+    }
+
+    buildPresets();
+    document.getElementById('simBtn').addEventListener('click', simulate);
+    simulate();
+  </script>
+</body>
+</html>
